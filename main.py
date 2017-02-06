@@ -13,13 +13,13 @@ thread.setProxy(proxies)
 thread.start()
 thread.join()
 
-print("===== Liens ========")
-#for link in liens:
-    #print("link==>",link)
-    #htmlContent2 = requests.get(link, proxies=proxies).content
-    #parser.feed(htmlContent2)
-    #liens2 = parser.getLinks()
-    #for lien in liens2:
-    #    print(lien)
+"""
+Le programme prend en paramètre une URL initiale, il récupère le contenu (texte et liens)
+Il filtre le texte dans un tableau, et crée pour chaque lien de la page un thread correspondant,
+récupère son contenu etc.
+
+Il reste à filtrer l'unicité des liens et la gestion des bases de données (stockage)
+
+"""
 
 

@@ -112,10 +112,10 @@ class MyThread(Thread):
         try:
             htmlContent = requests.get(self.URL, proxies=self.proxies).content.decode("utf-8")
             self.parser.feed(htmlContent)
-            links=self.parser.getLinks()
-            for link in links:
+            links=self.parser.getLinks() #On obtient les liens
+            for link in links: #Pour chaque lien
 
-                print(">",link)
+                print(">",link) #On l'affiche, on crée un Thread, et on récupère son contenu
                 T=MyThread()
                 T.setProxy(self.proxies)
                 T.setURL(link)
