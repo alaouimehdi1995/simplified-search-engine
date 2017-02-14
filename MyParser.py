@@ -2,6 +2,8 @@ from html.parser import HTMLParser
 import re
 import requests
 from threading import Thread
+import pymongo
+
 class MyParser(HTMLParser):
 
     itsText=False
@@ -66,36 +68,39 @@ class MyParser(HTMLParser):
     def getLinks(self):
         return self.links
 
-    def getText(self):
-        #On regroupe les span juxtaposés, et les textes (p) justaposés
-        i=0
-        while(i<len(self.texts)):
-            j=i+1
-            while(j<len(self.texts) and self.texts[i][0]==self.texts[j][0]):
-                self.texts[i][1]+=self.texts[j][1]
-                del self.texts[j]
-            i+=1
+    def traitementTexte(self,texts):
+        #On concatène tout les paragraphes de la page
+        stopWords=["and","or",".",",","et","à","a","(",")","[", "]",":",";","\"","'"]
+        stopChars=[".",",","(",")","[", "]",":",";","\"","'"]
+        texte=""
+        for i in range (0,len(texts)):
+            texte+=texts[i][1]+" "
         # On supprime les tabulations et les retours à la ligne
-        for element in self.texts:
-            element[1]=' '.join(element[1].split('\n')) # On supprime les retours à la ligne
-            element[1] = ' '.join(element[1].split('\t')) # On supprime les tabulations
-            element[1] = ' '.join(element[1].split('\r'))  # On supprime les tabulations
-            element[1] = re.sub('( )+', ' ', element[1])
-        return self.texts
+        texte=' '.join(texte.split('\n')) # On supprime les retours à la ligne
+        texte = ' '.join(texte.split('\t')) # On supprime les tabulations
+        texte = ' '.join(texte.split('\r'))  # On supprime les tabulations
+        texte = re.sub('( )+', ' ', texte) # On remplace une série d'espaces par un seul
+
+        liste=[l for l in texte.split(' ') if (l not in stopWords)] #On supprime les stopwords
+        texte=' '.join(liste)
+
+        for sc in stopChars: #On supprime les caractères qui ne servent à rien
+            texte=''.join(texte.split(sc))
+
+        return texte
+
+    def getText(self):
+        texte=self.traitementTexte(self.texts)
+
+        return texte
 
     def getTitles(self):
-        newTitles=[]
-        for element in self.titles:
-            e =' '.join(element.split('\n')) # On supprime les retours à la ligne
-            e = ' '.join(e.split('\t')) # On supprime les tabulations
-            e = ' '.join(e.split('\r'))  # On supprime les tabulations
-            e = re.sub('( )+', ' ', e)
-            if(e!="" and e!=" "):
-                newTitles.append(e)
-        self.titles=newTitles
-        return self.titles
+        titres=self.traitementTexte(self.titles)
+        return titres
 
 class MyThread(Thread):
+    depth=0
+    maxDepth=0
     URL = None
     proxies = None
     parser= MyParser()
@@ -108,19 +113,48 @@ class MyThread(Thread):
 
     def setParser(self,Parser):
         self.parser=Parser
+
+    def setDepth(self,depth):
+        self.depth=depth
+
+    def setMaxDepth(self,max):
+        self.maxDepth=max
+
     def run(self):
         try:
             htmlContent = requests.get(self.URL, proxies=self.proxies).content.decode("utf-8")
+            print("contenu extrait")
             self.parser.feed(htmlContent)
+            texte = self.parser.getText() # On extrait le texte traité
+            titles= self.parser.getTitles() # Les titres traités aussi
+            print("URL >", self.URL)
+            try:
+                client = pymongo.MongoClient('mongodb://localhost:27017/') #On se connecte à la BD
+                db = client['crawl']
+                collection = db['crawl']
+                collection.insert_one({'_id': self.URL, 'Text': texte,'Titles':titles}) #On y insère le résultat
+            except:
+                print("writing error")
             links=self.parser.getLinks() #On obtient les liens
-            for link in links: #Pour chaque lien
+            if self.depth<=self.maxDepth:
+                for link in links: #Pour chaque lien
 
-                print(">",link) #On l'affiche, on crée un Thread, et on récupère son contenu
-                T=MyThread()
-                T.setProxy(self.proxies)
-                T.setURL(link)
-                T.setParser(self.parser)
-                T.start()
+                    #print(">",link) #On l'affiche, on crée un Thread, et on récupère son contenu
+                    T=MyThread()
+                    T.setProxy(self.proxies)
+                    T.setURL(link)
+                    T.setParser(self.parser)
+                    T.setDepth(self.depth+1)
+                    T.setMaxDepth(self.maxDepth)
+                    T.start()
 
         except:
-            print("",end="")
+            print("error\n",end="")
+
+
+
+
+
+
+
+
