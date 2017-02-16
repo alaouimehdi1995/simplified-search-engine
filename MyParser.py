@@ -1,118 +1,20 @@
-from html.parser import HTMLParser
 import re
 import requests
 from threading import Thread
 import pymongo
 
-class MyParser(HTMLParser):
-
-    itsText=False
-    itsSpan=False
-    itsH1=False
-    itsH2=False
-    itsH3=False
-    itsH4=False
-    itsH5=False
+class PersonnalParser(Thread):
+    depth = 0
+    maxDepth = 0
+    text=""
     links=[]
-    texts=[]
-    titles=[]
+    stopChars = ["'", '"', '-', '—', '+', '*', '=', '.', '/', '(', ')', '[', ']', '{', '}', '|', ',', ';', ':', '¶', '!', '?', '&', '#', '$', '_', '\\']
+    stopWords = ["a", "an", "or", "not", "for", "in", "with", "the", "out", "on", "to"]
+    def setURL(self,url):
+        self.URL=url
 
-
-    def handle_starttag(self, tag, attrs):
-        if(tag=='a'):
-            for attr in attrs:
-                if(attr[1][:4]=="http"):
-                    self.links.append(attr[1])
-        elif(tag=='p'):
-            self.itsText=True
-        elif(tag=="span"):
-            self.itsSpan=True
-        elif(tag=="h1"):
-            self.itsH1=True
-        elif (tag == "h2"):
-            self.itsH2 = True
-        elif (tag == "h3"):
-            self.itsH3 = True
-        elif (tag == "h4"):
-            self.itsH4 = True
-        elif (tag == "h5"):
-            self.itsH5 = True
-
-    def handle_data(self, data):
-        if (self.itsSpan):
-            #Lorsqu'on trouve une balise span
-            self.texts.append(["span", data])
-        if(self.itsText):
-            #Lorsqu'on trouve une balise texte (p)
-            self.texts.append(["p",data])
-        if(self.itsH1 or self.itsH2 or self.itsH3 or self.itsH4 or self.itsH5):
-            #Lorsqu'on trouve une balise titre (h1..h5)
-            self.titles.append(data)
-
-    def handle_endtag(self, tag):
-        if(tag=='p'):
-            self.itsText=False
-        elif(tag=="span"):
-            self.itsSpan=False
-        elif (tag == "h1"):
-            self.itsH1 = False
-        elif (tag == "h2"):
-            self.itsH2 = False
-        elif (tag == "h3"):
-            self.itsH3 = False
-        elif (tag == "h4"):
-            self.itsH4 = False
-        elif (tag == "h5"):
-            self.itsH5 = False
-
-    def getLinks(self):
-        return self.links
-
-    def traitementTexte(self,texts):
-        #On concatène tout les paragraphes de la page
-        stopWords=["and","or",".",",","et","à","a","(",")","[", "]",":",";","\"","'"]
-        stopChars=[".",",","(",")","[", "]",":",";","\"","'"]
-        texte=""
-        for i in range (0,len(texts)):
-            texte+=texts[i][1]+" "
-        # On supprime les tabulations et les retours à la ligne
-        texte=' '.join(texte.split('\n')) # On supprime les retours à la ligne
-        texte = ' '.join(texte.split('\t')) # On supprime les tabulations
-        texte = ' '.join(texte.split('\r'))  # On supprime les tabulations
-        texte = re.sub('( )+', ' ', texte) # On remplace une série d'espaces par un seul
-
-        liste=[l for l in texte.split(' ') if (l not in stopWords)] #On supprime les stopwords
-        texte=' '.join(liste)
-
-        for sc in stopChars: #On supprime les caractères qui ne servent à rien
-            texte=''.join(texte.split(sc))
-
-        return texte
-
-    def getText(self):
-        texte=self.traitementTexte(self.texts)
-
-        return texte
-
-    def getTitles(self):
-        titres=self.traitementTexte(self.titles)
-        return titres
-
-class MyThread(Thread):
-    depth=0
-    maxDepth=0
-    URL = None
-    proxies = None
-    parser= MyParser()
-
-    def setURL(self, URL):
-        self.URL = URL
-
-    def setProxy(self, proxies):
-        self.proxies = proxies
-
-    def setParser(self,Parser):
-        self.parser=Parser
+    def setProxy(self,proxy):
+        self.proxy=proxy
 
     def setDepth(self,depth):
         self.depth=depth
@@ -120,36 +22,100 @@ class MyThread(Thread):
     def setMaxDepth(self,max):
         self.maxDepth=max
 
-    def run(self):
-        try:
-            htmlContent = requests.get(self.URL, proxies=self.proxies).content.decode("utf-8")
-            print("contenu extrait")
-            self.parser.feed(htmlContent)
-            texte = self.parser.getText() # On extrait le texte traité
-            titles= self.parser.getTitles() # Les titres traités aussi
-            print("URL >", self.URL)
+    def setStopChars(self,stopChars):
+        TempList=[]
+        for c in stopChars:
+            if c in ['^','$','?','!','+','*','.','(',')','[',']','{','}','|','\\']:
+                c='\\'+c
+            TempList.append(c)
+        self.stopChars="("+'|'.join(TempList)+")"
+
+    def setStopWords(self,stopwords):
+        self.stopWords=stopwords
+
+
+    def getDictionnary(self):
+        dictionnary={}
+        List = self.text.split(" ")
+        while len(List) > 0:
+            word = List.pop(0)
             try:
-                client = pymongo.MongoClient('mongodb://localhost:27017/') #On se connecte à la BD
-                db = client['crawl']
-                collection = db['crawl']
-                collection.insert_one({'_id': self.URL, 'Text': texte,'Titles':titles}) #On y insère le résultat
+                dictionnary[word] = dictionnary[word] + 1
             except:
-                print("writing error")
-            links=self.parser.getLinks() #On obtient les liens
-            if self.depth<=self.maxDepth:
-                for link in links: #Pour chaque lien
+                dictionnary[word] = 1
+        return dictionnary
 
-                    #print(">",link) #On l'affiche, on crée un Thread, et on récupère son contenu
-                    T=MyThread()
-                    T.setProxy(self.proxies)
-                    T.setURL(link)
-                    T.setParser(self.parser)
-                    T.setDepth(self.depth+1)
-                    T.setMaxDepth(self.maxDepth)
-                    T.start()
 
+
+
+
+    def parse(self):
+
+        htmlContent = requests.get(self.URL, proxies=self.proxy) # On récupère la page html
+        encoding=htmlContent.encoding
+        if encoding==None:
+            encoding="utf-8"
+        htmlContent=htmlContent.content.decode(encoding) # On la décode
+        htmlContent= re.sub(r'<script(.)*>[^<]*</script>', r'', htmlContent, flags=re.IGNORECASE | re.MULTILINE) #On supprime le code JS
+
+        links = re.findall('a href="(http[^"]*)"', htmlContent, flags=re.IGNORECASE | re.DOTALL) #On recupère les balises <a href>
+        self.links = [re.sub(r'a href="(http[^"]*)"', r'\1', element, re.IGNORECASE) for element in links] #On en retient le lien
+        self.setStopChars(self.stopChars)
+        self.setStopWords(self.stopWords)
+
+
+        self.text=re.sub(r'<[^>]*>',r'',htmlContent,flags=re.IGNORECASE | re.MULTILINE) #On supprime les balises
+        self.text = re.sub('(?!((19[0-9]{2}|20[0-9]{2})))([0-9]+)', ' ',self.text,flags=re.IGNORECASE | re.MULTILINE)  # On supprime tout les nombres à part les années (dates)
+        self.text = re.sub(self.stopChars,' ',self.text,flags=re.IGNORECASE | re.MULTILINE)  # On supprime tout les stopchars
+        self.text = re.sub('(\s)+', ' ',self.text)  # On supprime tout les espaces et retours à la ligne par un seul espace
+        self.text=self.text.lower() #On met le tout en minuscule
+        self.text = re.sub(' ([a-z]{1} )+', ' ', self.text,flags=re.IGNORECASE | re.MULTILINE)  # On supprime tout les stopWords
+
+        TempListe=[]
+        for e in self.text.split(' '):
+            if e not in self.stopWords:
+                TempListe.append(e)
+        self.text=' '.join(TempListe)
+
+        #Fin du traitement
+    def getText(self):
+        return self.text
+    def getLinks(self):
+        return self.links
+    def getURL(self):
+        return self.URL
+
+    def run(self):
+        self.parse()
+        texte = self.getText()
+        content=self.getDictionnary()
+        try:
+            client = pymongo.MongoClient('mongodb://localhost:27017/')  # On se connecte à la BD
+            db = client['crawl']
+            collection = db['crawl']
+            collection.insert_one({'_id': self.URL, 'Content': content})  # On y insère le résultat
+            print("Inserted URL >", self.URL)
         except:
-            print("error\n",end="")
+            print("",end="")
+        links = self.getLinks()  # On obtient les liens
+        if self.depth <= self.maxDepth:
+            for link in links:  # On crée à chaque lien de la liste un Thread pour traiter son contenu
+
+                T = PersonnalParser()
+                T.setProxy(self.proxy)
+                T.setURL(link)
+                T.setDepth(self.depth + 1)
+                T.setMaxDepth(self.maxDepth)
+                T.start()
+
+
+
+
+
+
+
+
+
 
 
 
