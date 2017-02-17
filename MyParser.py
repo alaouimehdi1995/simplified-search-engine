@@ -89,6 +89,7 @@ class PersonnalParser(Thread):
         self.parse()
         texte = self.getText()
         content=self.getDictionnary()
+
         try:
             client = pymongo.MongoClient('mongodb://localhost:27017/')  # On se connecte à la BD
             db = client['crawl']
