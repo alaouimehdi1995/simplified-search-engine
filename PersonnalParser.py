@@ -1,3 +1,6 @@
+"""
+Simplified Searching Engine, conceived and implemented by: ALAOUI Mehdi 2017
+"""
 import re
 import requests
 from threading import Thread

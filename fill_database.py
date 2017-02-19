@@ -1,3 +1,6 @@
+"""
+Simplified Searching Engine, conceived and implemented by: ALAOUI Mehdi 2017
+"""
 from PersonnalParser import PersonnalParser
 """
 This file should be executed when you would feed your database.

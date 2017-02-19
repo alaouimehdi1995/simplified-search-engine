@@ -1,3 +1,6 @@
+"""
+Simplified Searching Engine, conceived and implemented by: ALAOUI Mehdi 2017
+"""
 import pymongo
 
 """
@@ -51,8 +54,14 @@ for webSite in databaseContent:
 results=sorted(results,key=lambda structure: structure['score'],reverse=True)
 
 #Printing results
-for e in results:
-    print(e['element']['_id']," score:",e['score'])
+
+if len(results)>0:
+    i=1
+    for e in results:
+        print(i,") ",e['element']['_id']," score:",e['score'])
+        i+=1
+else:
+    print("Résultats introuvables pour votre recherche")
 
 
 
