@@ -4,8 +4,8 @@ from threading import Thread
 import pymongo
 
 class PersonnalParser(Thread):
-    depth = 0
-    maxDepth = 0
+    depth = 1
+    maxDepth = 1
     text=""
     links=[]
     stopChars = ["'", '"', '-', '—', '+', '*', '=', '.', '/', '(', ')', '[', ']', '{', '}', '|', ',', ';', ':', '¶', '!', '?', '&', '#', '$', '_', '\\']
@@ -51,25 +51,25 @@ class PersonnalParser(Thread):
 
     def parse(self):
 
-        htmlContent = requests.get(self.URL, proxies=self.proxy) # On récupère la page html
+        htmlContent = requests.get(self.URL, proxies=self.proxy) #Getting the HTML content of the webpage
         encoding=htmlContent.encoding
         if encoding==None:
             encoding="utf-8"
-        htmlContent=htmlContent.content.decode(encoding) # On la décode
-        htmlContent= re.sub(r'<script(.)*>[^<]*</script>', r'', htmlContent, flags=re.IGNORECASE | re.MULTILINE) #On supprime le code JS
+        htmlContent=htmlContent.content.decode(encoding) # Decoding it into it's format (utf-8 by default)
+        htmlContent= re.sub(r'<script(.)*>[^<]*</script>', r'', htmlContent, flags=re.IGNORECASE | re.MULTILINE) # Removing JavaScript Code
 
-        links = re.findall('a href="(http[^"]*)"', htmlContent, flags=re.IGNORECASE | re.DOTALL) #On recupère les balises <a href>
-        self.links = [re.sub(r'a href="(http[^"]*)"', r'\1', element, re.IGNORECASE) for element in links] #On en retient le lien
+        links = re.findall('a href="(http[^"]*)"', htmlContent, flags=re.IGNORECASE | re.DOTALL) #Getting the <a href > tags
+        self.links = [re.sub(r'a href="(http[^"]*)"', r'\1', element, re.IGNORECASE) for element in links] #Saving the link inside
         self.setStopChars(self.stopChars)
         self.setStopWords(self.stopWords)
 
 
-        self.text=re.sub(r'<[^>]*>',r'',htmlContent,flags=re.IGNORECASE | re.MULTILINE) #On supprime les balises
-        self.text = re.sub('(?!((19[0-9]{2}|20[0-9]{2})))([0-9]+)', ' ',self.text,flags=re.IGNORECASE | re.MULTILINE)  # On supprime tout les nombres à part les années (dates)
-        self.text = re.sub(self.stopChars,' ',self.text,flags=re.IGNORECASE | re.MULTILINE)  # On supprime tout les stopchars
-        self.text = re.sub('(\s)+', ' ',self.text)  # On supprime tout les espaces et retours à la ligne par un seul espace
-        self.text=self.text.lower() #On met le tout en minuscule
-        self.text = re.sub(' ([a-z]{1} )+', ' ', self.text,flags=re.IGNORECASE | re.MULTILINE)  # On supprime tout les stopWords
+        self.text=re.sub(r'<[^>]*>',r'',htmlContent,flags=re.IGNORECASE | re.MULTILINE) #Removing all tags
+        self.text = re.sub('(?!((19[0-9]{2}|20[0-9]{2})))([0-9]+)', ' ',self.text,flags=re.IGNORECASE | re.MULTILINE)  # Removing numbers excepting years
+        self.text = re.sub(self.stopChars,' ',self.text,flags=re.IGNORECASE | re.MULTILINE)  # Removing stop characters
+        self.text = re.sub('(\s)+', ' ',self.text)  # Remplacing multiple spaces by just one
+        self.text=self.text.lower()
+        self.text = re.sub(' ([a-z]{1} )+', ' ', self.text,flags=re.IGNORECASE | re.MULTILINE)  # Deleting stop words
 
         TempListe=[]
         for e in self.text.split(' '):
@@ -77,7 +77,7 @@ class PersonnalParser(Thread):
                 TempListe.append(e)
         self.text=' '.join(TempListe)
 
-        #Fin du traitement
+        #TEnd of treatment
     def getText(self):
         return self.text
     def getLinks(self):
@@ -87,20 +87,20 @@ class PersonnalParser(Thread):
 
     def run(self):
         self.parse()
-        texte = self.getText()
+        self.getText()
         content=self.getDictionnary()
 
         try:
-            client = pymongo.MongoClient('mongodb://localhost:27017/')  # On se connecte à la BD
+            client = pymongo.MongoClient('mongodb://localhost:27017/')  # Connecting to DB
             db = client['crawl']
             collection = db['crawl']
-            collection.insert_one({'_id': self.URL, 'Content': content})  # On y insère le résultat
+            collection.insert_one({'_id': self.URL, 'Content': content})  # Writing into DB
             print("Inserted URL >", self.URL)
         except:
-            print("",end="")
-        links = self.getLinks()  # On obtient les liens
-        if self.depth <= self.maxDepth:
-            for link in links:  # On crée à chaque lien de la liste un Thread pour traiter son contenu
+            pass
+        links = self.getLinks()  # Getting links
+        if self.depth <= self.maxDepth: # If we are not exceeding the maximum depth
+            for link in links:  # For each link, we create a Thread that will treat it
 
                 T = PersonnalParser()
                 T.setProxy(self.proxy)
