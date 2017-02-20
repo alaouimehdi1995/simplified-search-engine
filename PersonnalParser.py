@@ -5,11 +5,15 @@ import re
 import requests
 from threading import Thread
 import pymongo
+from DBManager import DBManager
 
 class PersonnalParser(Thread):
+    URL=None
+    proxy=None
     depth = 1
     maxDepth = 1
     text=""
+    title=None
     links=[]
     stopChars = ["'", '"', '-', '—', '+', '*', '=', '.', '/', '(', ')', '[', ']', '{', '}', '|', ',', ';', ':', '¶', '!', '?', '&', '#', '$', '_', '\\']
     stopWords = ["a", "an", "or", "not", "for", "in", "with", "the", "out", "on", "to"]
@@ -18,6 +22,9 @@ class PersonnalParser(Thread):
 
     def setProxy(self,proxy):
         self.proxy=proxy
+
+    def setDBManager(self,dbm):
+        self.dbManager=dbm
 
     def setDepth(self,depth):
         self.depth=depth
@@ -60,11 +67,19 @@ class PersonnalParser(Thread):
             encoding="utf-8"
         htmlContent=htmlContent.content.decode(encoding) # Decoding it into it's format (utf-8 by default)
         htmlContent= re.sub(r'<script(.)*>[^<]*</script>', r'', htmlContent, flags=re.IGNORECASE | re.MULTILINE) # Removing JavaScript Code
-
-        links = re.findall('a href="(http[^"]*)"', htmlContent, flags=re.IGNORECASE | re.DOTALL) #Getting the <a href > tags
-        self.links = [re.sub(r'a href="(http[^"]*)"', r'\1', element, re.IGNORECASE) for element in links] #Saving the link inside
         self.setStopChars(self.stopChars)
         self.setStopWords(self.stopWords)
+        try:
+            self.title = re.findall(r'<title>[^<]*</title>', htmlContent, re.IGNORECASE)[0]
+            self.title = re.sub(r'<title>([^<]*)</title>', r'\1', self.title, re.IGNORECASE)
+            self.title = self.title.lower()
+        except:
+            pass
+
+        links = re.findall('a href="(http[^"]*)"', htmlContent, flags=re.IGNORECASE | re.DOTALL) #Getting the <a href > tags
+        #links = re.findall('a href="(http[^"]*)"', htmlContent, flags=re.IGNORECASE | re.DOTALL) #Getting the <a href > tags
+        self.links = [re.sub('a href="(http[^"]*)"', r'\1', element, re.IGNORECASE) for element in links] #Saving the link inside
+
 
 
         self.text=re.sub(r'<[^>]*>',r'',htmlContent,flags=re.IGNORECASE | re.MULTILINE) #Removing all tags
@@ -73,6 +88,8 @@ class PersonnalParser(Thread):
         self.text = re.sub('(\s)+', ' ',self.text)  # Remplacing multiple spaces by just one
         self.text=self.text.lower()
         self.text = re.sub(' ([a-z]{1} )+', ' ', self.text,flags=re.IGNORECASE | re.MULTILINE)  # Deleting stop words
+
+
 
         TempListe=[]
         for e in self.text.split(' '):
@@ -89,16 +106,18 @@ class PersonnalParser(Thread):
         return self.URL
 
     def run(self):
-        self.parse()
+        try:
+            self.parse()
+        except requests.ConnectionError:
+            print("Too many requests in short time..")
         self.getText()
         content=self.getDictionnary()
 
         try:
-            client = pymongo.MongoClient('mongodb://localhost:27017/')  # Connecting to DB
-            db = client['crawl']
-            collection = db['crawl']
-            collection.insert_one({'_id': self.URL, 'Content': content})  # Writing into DB
+            pass
+            self.dbManager.insertOne({'_id': self.URL, 'index': content, 'title':self.title,'text':self.text})  # Writing into DB
             print("Inserted URL >", self.URL)
+            print("=== ",self.dbManager.getCount()," ===")
         except:
             pass
         links = self.getLinks()  # Getting links
@@ -107,24 +126,8 @@ class PersonnalParser(Thread):
 
                 T = PersonnalParser()
                 T.setProxy(self.proxy)
+                T.setDBManager(self.dbManager)
                 T.setURL(link)
                 T.setDepth(self.depth + 1)
                 T.setMaxDepth(self.maxDepth)
                 T.start()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

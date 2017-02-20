@@ -1,31 +1,43 @@
 """
 Simplified Searching Engine, conceived and implemented by: ALAOUI Mehdi 2017
 """
-import pymongo
+from DBManager import DBManager
+from math import pow
 
 """
 This file should be executed when user want to search something and getting the results.
 Defined functions below:
     - getScore: function that calculate score of wordList given in parameters into savedWebSite (also given)
 Defined variables below:
+    - resultsPerPage: number of results that will be shown in one page
     - sentence: a list of words searched by user
-    - client,db,collection: variables used to consult the database
+    - dbManager: an object that will be the interface with the database
     - databaseContent: a list of websites saved into our database
     - results: a sorted list of results
 """
 def getScore(savedWebSite, wordList):
     score = 0
     nb_mots_trouves=0
+    nb_titre_trouve=0
+
     for word in wordList:
+        if word in savedWebSite['_id']:
+            nb_titre_trouve += 1
+        if savedWebSite['title']!= None:
+            if word in savedWebSite['title']:
+                nb_titre_trouve+=1
+
         try:
-            score += savedWebSite['Content'][word]
+            score += savedWebSite['index'][word]
             nb_mots_trouves+=1
         except:
             pass
     score=score*nb_mots_trouves
+    score=score*pow(10,nb_titre_trouve)
     return score
 
 
+resultsPerPage=15
 
 
 
@@ -35,10 +47,13 @@ sentence=sentence.split(' ')
 
 
 
-client = pymongo.MongoClient('mongodb://localhost:27017/')
-db = client['crawl']
-collection = db['crawl']
-databaseContent=collection.find()
+dbManager=DBManager()
+dbManager.setHost('localhost')
+dbManager.setPort(27017)
+dbManager.setDBName('crawl')
+dbManager.setTableName('crawl')
+dbManager.connect()
+databaseContent=dbManager.find()
 
 
 results=[]
@@ -46,7 +61,7 @@ results=[]
 for webSite in databaseContent:
     structure={'element':webSite,'score':getScore(webSite,sentence)}
     # Structure of structure:
-    # { structure:{ '_id':"http://www.youtube.com", 'Content':{'word1':occurence1,...} }, 'score':13}
+    # { structure:{ '_id':"http://www.youtube.com", 'index':{'word1':occurence1,...}, 'title':'page title','text':'(content text)' }, 'score':13}
     if structure['score']>0:
         results.append(structure)
 
@@ -56,10 +71,18 @@ results=sorted(results,key=lambda structure: structure['score'],reverse=True)
 #Printing results
 
 if len(results)>0:
-    i=1
-    for e in results:
-        print(i,") ",e['element']['_id']," score:",e['score'])
-        i+=1
+    i=0
+    nb=len(results)
+    while i < nb:
+        limit=resultsPerPage if i+resultsPerPage < nb else nb-i
+        for j in range(limit):
+            print(i+j+1,") ",end="")
+            if(results[i+j]['element']['title']!=None):
+                print(results[i+j]['element']['title'])
+            print("\t",results[i+j]['element']['_id']," score:",results[i+j]['score'],"\n")
+        print("Page: ",int((i/resultsPerPage)+1),"/",int(1+nb/resultsPerPage))
+        i+=limit
+        input()
 else:
     print("Résultats introuvables pour votre recherche")
 
