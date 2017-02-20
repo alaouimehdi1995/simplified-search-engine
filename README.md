@@ -1,5 +1,5 @@
 <h1>Simplified Searching Engine</h1>
-<h2>that crawls, scrapps, indexes data and stores it into a database</h2>
+<h2>that crawls, scraps, indexes data and stores it into a database</h2>
 The program is written in Python Language, uses regex to parse HTML, and MultiThreading to go faster.
 The database part is assured by MongoDB
 The Project contains 3 files:
