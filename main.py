@@ -1,92 +1,85 @@
-"""
-Simplified Searching Engine, conceived and implemented by: ALAOUI Mehdi 2017
-"""
-from DBManager import DBManager
-from math import pow
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 
-"""
-This file should be executed when user want to search something and getting the results.
-Defined functions below:
-    - getScore: function that calculate score of wordList given in parameters into savedWebSite (also given)
-Defined variables below:
-    - resultsPerPage: number of results that will be shown in one page
-    - sentence: a list of words searched by user
-    - dbManager: an object that will be the interface with the database
-    - databaseContent: a list of websites saved into our database
-    - results: a sorted list of results
-"""
-def getScore(savedWebSite, wordList):
-    score = 0
-    nb_mots_trouves=0
-    nb_titre_trouve=0
+import logging
+from typing import Dict, List
 
-    for word in wordList:
-        if word in savedWebSite['_id']:
-            nb_titre_trouve += 1
-        if savedWebSite['title']!= None:
-            if word in savedWebSite['title']:
-                nb_titre_trouve+=1
+from database_manager import DatabaseManager
+from settings import DISPLAYED_DESCRIPTION_LENGTH
 
-        try:
-            score += savedWebSite['index'][word]
-            nb_mots_trouves+=1
-        except:
-            pass
-    score=score*nb_mots_trouves
-    score=score*pow(10,nb_titre_trouve)
-    return score
+logger = logging.getLogger(__name__)
 
 
-resultsPerPage=15
+def _calculate_result_score_for_given_query(
+    result_element: Dict, query_words: List[str]
+) -> int:
+    """
+    `result_element` structure:
+    {
+        "_id": "https://example.com/",
+        "title": "page title here",
+        "content": "cleaned page text here",
+        "content_occurences": {"word1": 3, "word2": 5,...}
+    }
+    """
+    matches = {
+        "url": 0,
+        "title": 0,
+        "text_content": 0,
+    }
+
+    for query_word in query_words:
+        if query_word in result_element["_id"].lower():
+            matches["url"] += 1
+        if (
+            result_element["title"] is not None
+            and query_word in result_element["title"].lower()
+        ):
+            matches["title"] += 1
+        matches["text_content"] += result_element["content_occurences"].get(
+            query_word, 0
+        )
+
+    final_score = 10 * (5 * matches["url"] + matches["title"]) + matches["text_content"]
+
+    return final_score
 
 
-
-print("Entrez la phrase à chercher")
-sentence=str(input()).lower()
-sentence=sentence.split(' ')
-
-
-
-dbManager=DBManager()
-dbManager.setHost('localhost')
-dbManager.setPort(27017)
-dbManager.setDBName('crawl')
-dbManager.setTableName('crawl')
-dbManager.connect()
-databaseContent=dbManager.find()
-
-
-results=[]
-
-for webSite in databaseContent:
-    structure={'element':webSite,'score':getScore(webSite,sentence)}
-    # Structure of structure:
-    # { structure:{ '_id':"http://www.youtube.com", 'index':{'word1':occurence1,...}, 'title':'page title','text':'(content text)' }, 'score':13}
-    if structure['score']>0:
-        results.append(structure)
+def _get_query_results(query: str) -> List[Dict]:
+    query_words = query.split(" ")
+    db_manager = DatabaseManager()
+    query_results = db_manager.find_text(query)
+    # TODO: using generator instead ?
+    scored_results = [
+        {
+            **result,
+            "score": _calculate_result_score_for_given_query(result, query_words),
+        }
+        for result in query_results
+    ]
+    return sorted(scored_results, key=lambda x: x["score"], reverse=True)
 
 
-results=sorted(results,key=lambda structure: structure['score'],reverse=True)
+if __name__ == "__main__":
+    while True:
+        print("Enter your query (empty query to exit):")
+        query = str(input()).lower()
+        if not query:
+            break
+        results = _get_query_results(query)
 
-#Printing results
-
-if len(results)>0:
-    i=0
-    nb=len(results)
-    while i < nb:
-        limit=resultsPerPage if i+resultsPerPage < nb else nb-i
-        for j in range(limit):
-            print(i+j+1,") ",end="")
-            if(results[i+j]['element']['title']!=None):
-                print(results[i+j]['element']['title'])
-            print("\t",results[i+j]['element']['_id']," score:",results[i+j]['score'],"\n")
-        print("Page: ",int((i/resultsPerPage)+1),"/",int(1+nb/resultsPerPage))
-        i+=limit
-        input()
-else:
-    print("Résultats introuvables pour votre recherche")
-
-
-
-
-
+        if not results:
+            print("No results found for your query")
+        else:
+            # TODO: add pagination
+            for i, result in enumerate(results):
+                title = result["title"] if result["title"] is not None else ""
+                url = result["_id"]
+                score = result["score"]
+                content = result["content"]
+                desc = (
+                    content
+                    if len(content) <= DISPLAYED_DESCRIPTION_LENGTH
+                    else f"{content[:DISPLAYED_DESCRIPTION_LENGTH - 3]}..."
+                )
+                print(f"\n== {i + 1} - {title} {url}\n\t {desc} ({score})\n")
