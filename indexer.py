@@ -25,6 +25,7 @@ class IndexingNode(Thread):
     def _increment_active_threads(cls):
         cls._active_threads_number[0] += 1
 
+    @classmethod
     def _decrement_active_threads(cls):
         cls._active_threads_number[0] -= 1
 
