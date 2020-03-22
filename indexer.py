@@ -46,10 +46,10 @@ class IndexingNode(Thread):
         # Granting not having a duplicate key error in case the script is run multiple times
         if db_manager.find({"_id": self._target_url}).count() == 0:
             db_manager.insert(parsed_data.to_dict())
-            logger.info(f" > Inserted URL into DB: {self._target_url}")
-            logger.info(f" > Number of database objects: {db_manager.inserts_count}")
+            logger.info(f"> Inserted successfully into db: {self._target_url}")
+            logger.info(f"> Number of objects in db: {db_manager.inserts_count}")
         else:
-            logger.info(f" > URL already existing in the DB: {self._target_url}")
+            logger.info(f"> URL already existing in the db: {self._target_url}")
 
     def _create_child_indexing_nodes(self, urls_list: List[str]) -> None:
         db_manager = DatabaseManager()
@@ -70,7 +70,7 @@ class IndexingNode(Thread):
 
     def run(self) -> None:
         logger.info(
-            f" > new thread started (url={self._target_url}, depth={self._current_thread_depth}, active={self._active_threads_number[0]}))"
+            f"> New thread started for {self._target_url} (tree depth={self._current_thread_depth}, active threads={self._active_threads_number[0]}))"
         )
         try:
             html_content: str = self._fetch_html_content_or_raise_exception()
