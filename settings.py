@@ -16,7 +16,7 @@ DISPLAYED_DESCRIPTION_LENGTH = 150
 
 # Database settings ###################
 
-DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_HOST = os.environ.get("DB_HOST", "database")
 DB_PORT = os.environ.get("DB_PORT", 27017)
 DB_NAME = os.environ.get("DB_NAME", "search_engine")
 

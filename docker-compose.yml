@@ -1,0 +1,36 @@
+version: "3"
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  database:
+    image: mongo:4.2
+    container_name: "search-engine-database"
+    ports:
+      - "27017:27017"
+    restart: always
+    networks:
+      - app-network
+
+  indexing-script:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: search-engine-app
+    container_name: "search-engine-indexing-script"
+    command: python run_crawler.py
+    restart: on-failure
+    networks:
+      - app-network
+
+  interactive-app:
+    image: search-engine-app
+    container_name: "search-engine-interactive-app"
+    command: python main.py
+    restart: on-failure
+    networks:
+      - app-network
+    stdin_open: true
+    tty: true
