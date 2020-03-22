@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-Simplified Searching Engine, conceived and implemented by: ALAOUI Mehdi 2017
-"""
+
 import json
 import logging
 import os
