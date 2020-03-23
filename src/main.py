@@ -22,11 +22,7 @@ def _calculate_result_score_for_given_query(
         "content_occurences": {"word1": 3, "word2": 5,...}
     }
     """
-    matches = {
-        "url": 0,
-        "title": 0,
-        "text_content": 0,
-    }
+    matches = {"url": 0, "title": 0, "text_content": 0}
 
     for query_word in query_words:
         if query_word in result_element["_id"].lower():

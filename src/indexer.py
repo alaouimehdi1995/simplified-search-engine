@@ -29,9 +29,7 @@ class IndexingNode(Thread):
     def _decrement_active_threads(cls):
         cls._active_threads_number[0] -= 1
 
-    def __init__(
-        self, target_url: str = None, current_thread_depth: int = 0,
-    ):
+    def __init__(self, target_url: str = None, current_thread_depth: int = 0):
         super(IndexingNode, self).__init__()
         self._target_url = target_url
         self._current_thread_depth = current_thread_depth

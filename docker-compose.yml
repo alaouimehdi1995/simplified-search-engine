@@ -16,11 +16,11 @@ services:
 
   indexing-script:
     build:
-      context: ./
+      context: ./src/
       dockerfile: Dockerfile
     image: search-engine-app
     container_name: "search-engine-indexing-script"
-    command: python run_crawler.py
+    command: python src/run_crawler.py
     restart: on-failure
     networks:
       - app-network
@@ -28,7 +28,7 @@ services:
   interactive-app:
     image: search-engine-app
     container_name: "search-engine-interactive-app"
-    command: python main.py
+    command: python src/main.py
     restart: on-failure
     networks:
       - app-network
