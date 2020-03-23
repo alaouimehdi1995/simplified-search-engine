@@ -3,13 +3,13 @@ before_install:
   - pip install black codecov flake8 pytest pytest-cov
 # command to install dependencies
 install:
-  - pip install -r requirements.txt
+  - pip install -r ./src/requirements.txt
 # command to run tests
 script:
-  - black --fast --diff --check .
-  - flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+  - black --fast --diff --check ./src/
+  - flake8 ./src/ --count --select=E9,F63,F7,F82 --show-source --statistics
     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
-  - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-  - pytest --cov=./
+  - flake8 ./src/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+  - pytest --cov-config=.coveragerc --cov=./src
 after_success:
   - codecov

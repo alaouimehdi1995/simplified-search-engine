@@ -31,10 +31,7 @@ INDEXER_HTTP_PROXY = os.environ.get(
     "INDEXER_HTTP_PROXY", None
 )  # could be, for example: 'http://10.23.201.11:3128'
 INDEXER_HTTPS_PROXY = os.environ.get("INDEXER_HTTP_PROXY", None)
-INDEXER_PROXY_SETTINGS = {
-    "http": INDEXER_HTTP_PROXY,
-    "https": INDEXER_HTTPS_PROXY,
-}
+INDEXER_PROXY_SETTINGS = {"http": INDEXER_HTTP_PROXY, "https": INDEXER_HTTPS_PROXY}
 
 INDEXER_START_URL = os.environ.get(
     "INDEXER_START_URL", "https://en.wikipedia.org/wiki/Main_Page"
@@ -45,8 +42,9 @@ INDEXER_MAX_ACTIVE_THREAD = os.environ.get("INDEXER_MAX_ACTIVE_THREAD", 1200)
 
 # Parser settings ####################
 
-PARSER_STOP_WORDS_FILENAME = "stop_words.json"
-PARSER_STOP_CHARS_FILENAME = "stop_chars.json"
+dir_path = os.path.dirname(os.path.realpath(__file__))
+PARSER_STOP_WORDS_FILENAME = os.path.join(dir_path, "data/stop_words.json")
+PARSER_STOP_CHARS_FILENAME = os.path.join(dir_path, "data/stop_chars.json")
 
 with open(PARSER_STOP_WORDS_FILENAME, "r") as f:
     PARSER_STOP_WORDS = json.load(f)
