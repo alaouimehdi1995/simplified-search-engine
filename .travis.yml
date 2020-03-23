@@ -1,6 +1,6 @@
 language: python
 before_install:
-  - pip install black codecov flake8 pytest
+  - pip install black codecov flake8 pytest pytest-cov
 # command to install dependencies
 install:
   - pip install -r requirements.txt
@@ -10,6 +10,6 @@ script:
   - flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
     # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
   - flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-  - pytest tests
+  - pytest --cov=./
 after_success:
-  - codecov --file coverage/lcov.info --disable search
+  - codecov
